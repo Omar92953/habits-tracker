@@ -1,0 +1,13 @@
+{
+  "name": "The Habits Tracker",
+  "short_name": "Habits",
+  "description": "Track your daily habits beautifully",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#191919",
+  "theme_color": "#191919",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
