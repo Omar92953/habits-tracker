@@ -46,7 +46,7 @@ button,input{font-family:inherit}
 .sb-btn.active{background:var(--fill-2);color:var(--tint)}
 
 /* Page content */
-#page-content{flex:1;overflow-y:auto;overflow-x:hidden;padding-top:calc(env(safe-area-inset-top) + var(--s5));padding-bottom:calc(90px + env(safe-area-inset-bottom));padding-left:calc(var(--s4) + env(safe-area-inset-left));padding-right:calc(var(--s4) + env(safe-area-inset-right));-webkit-overflow-scrolling:touch}
+#page-content{flex:1;overflow-y:auto;overflow-x:hidden;padding-top:calc(env(safe-area-inset-top) + var(--s5));padding-bottom:calc(61px + env(safe-area-inset-bottom));padding-left:calc(var(--s4) + env(safe-area-inset-left));padding-right:calc(var(--s4) + env(safe-area-inset-right));-webkit-overflow-scrolling:touch}
 .page{display:none}.page.active{display:block;animation:pgIn .18s ease-out}
 @keyframes pgIn{from{opacity:.5;transform:translateY(6px)}to{opacity:1;transform:none}}
 
@@ -305,7 +305,15 @@ input,select,textarea{font-size:16px!important}
       <div class="color-row" id="color-row"></div>
     </div>
     <div class="form-grp">
-      <label class="form-lbl">Daily Reminder</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label class="form-lbl" style="margin:0">Daily Reminder</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--label-2);cursor:pointer">
+          <span id="allday-lbl">All day</span>
+          <div id="allday-toggle" onclick="toggleAllDay()" style="width:44px;height:26px;border-radius:13px;background:var(--fill-3);position:relative;cursor:pointer;transition:background .2s">
+            <div id="allday-knob" style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>
+          </div>
+        </label>
+      </div>
       <input type="time" id="habit-reminder" class="form-field" value="09:00">
     </div>
     <div class="sheet-actions">
@@ -372,7 +380,7 @@ const HABIT_ICONS = ['droplets','dumbbell','book','brain','apple','moon','heart'
 // ── Utils ──
 function dateStr(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function uid(){return'h_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
-function fmtTime(t){if(!t)return'';const[hh,mm]=t.split(':').map(Number);return`${hh%12||12}:${String(mm).padStart(2,'0')} ${hh>=12?'PM':'AM'}`}
+function fmtTime(t){if(!t)return'All day';const[hh,mm]=t.split(':').map(Number);return`${hh%12||12}:${String(mm).padStart(2,'0')} ${hh>=12?'PM':'AM'}`}
 function fmtDate(d,opts){return d.toLocaleDateString('en-US',opts)}
 function showToast(msg,dur=2200){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur)}
 
@@ -430,7 +438,7 @@ const Store={
 
 // ── State ──
 let page='today',calHid=null,calPeriod='month',calDate=new Date();
-let editId=null,shIcon=HABIT_ICONS[0],shColor=COLORS[0];
+let editId=null,shIcon=HABIT_ICONS[0],shColor=COLORS[0],shAllDay=false;
 
 // ── Navigation ──
 function navigate(p){
@@ -492,7 +500,7 @@ function renderToday(){
         <div class="h-icon" style="background:${iconBg};color:${iconColor}">${ic(h.emoji,22)}</div>
         <div class="h-info">
           <div class="h-name">${h.name}</div>
-          <div class="h-meta">${h.reminderTime?'⏰ '+fmtTime(h.reminderTime):'No reminder'}</div>
+          <div class="h-meta">${h.reminderTime?'⏰ '+fmtTime(h.reminderTime):'All day'}</div>
         </div>
         ${streak>0?`<div class="streak-pill">${ic('flame',12)} ${streak}</div>`:''}
         <div class="check-ring" style="${isDone?`background:${h.color};border-color:${h.color}`:''}">
@@ -552,8 +560,9 @@ async function deleteHabit(id){
 // ── Calendar ──
 function renderCalendar(){
   const habits=Store.habits;
-  if(!calHid&&habits.length)calHid=habits[0].id;
-  const h=habits.find(x=>x.id===calHid);
+  if(!calHid&&habits.length)calHid='__all__';
+  const isAll=calHid==='__all__';
+  const h=isAll?null:habits.find(x=>x.id===calHid);
 
   let html=`<div class="ph"><div class="ph-title">Calendar</div></div>`;
 
@@ -562,8 +571,10 @@ function renderCalendar(){
     document.getElementById('page-calendar').innerHTML=html;return;
   }
 
-  // Habit pills
+  // Habit pills — "All" first, then each habit
   html+=`<div class="habit-pills">`;
+  const allActive=isAll;
+  html+=`<button class="h-pill${allActive?' active':''}" style="${allActive?`background:var(--tint);border-color:var(--tint)`:''}" onclick="calSelHabit('__all__')">${ic('activity',14)} All</button>`;
   habits.forEach(x=>{const a=x.id===calHid;html+=`<button class="h-pill${a?' active':''}" style="${a?`background:${x.color};border-color:${x.color}`:''}" onclick="calSelHabit('${x.id}')">${ic(x.emoji,14)} ${x.name}</button>`;});
   html+=`</div>`;
 
@@ -572,8 +583,6 @@ function renderCalendar(){
   ['day','week','month','year'].forEach(p=>{html+=`<button class="period-btn${calPeriod===p?' active':''}" onclick="setCalPeriod('${p}')">${p[0].toUpperCase()+p.slice(1)}</button>`;});
   html+=`</div>`;
 
-  if(!h){document.getElementById('page-calendar').innerHTML=html;return;}
-
   // Nav
   html+=`<div class="cal-nav">
     <button class="cal-arrow" onclick="calNav(-1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -581,12 +590,19 @@ function renderCalendar(){
     <button class="cal-arrow" onclick="calNav(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
   </div>`;
 
-  if(calPeriod==='day')html+=renderDayView(h);
-  else if(calPeriod==='week')html+=renderWeekView(h);
-  else if(calPeriod==='month')html+=renderMonthView(h);
-  else html+=renderYearView(h);
-
-  html+=renderStats(h);
+  if(isAll){
+    if(calPeriod==='day')html+=renderAllDayView(habits);
+    else if(calPeriod==='week')html+=renderAllWeekView(habits);
+    else if(calPeriod==='month')html+=renderAllMonthView(habits);
+    else html+=renderAllYearView(habits);
+    html+=renderAllStats(habits);
+  } else if(h){
+    if(calPeriod==='day')html+=renderDayView(h);
+    else if(calPeriod==='week')html+=renderWeekView(h);
+    else if(calPeriod==='month')html+=renderMonthView(h);
+    else html+=renderYearView(h);
+    html+=renderStats(h);
+  }
   document.getElementById('page-calendar').innerHTML=html;
 }
 
@@ -684,6 +700,95 @@ function renderStats(h){
   return`<div class="stats-row">
     <div class="stat-card"><div class="stat-val" style="color:var(--tint)">${streak}</div><div class="stat-lbl">${ic('flame',12)} Streak</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${best}</div><div class="stat-lbl">${ic('trophy',12)} Best</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${rate}%</div><div class="stat-lbl">${ic('target',12)} Rate</div></div>
+  </div>`;
+}
+
+// ── All Habits Calendar Views ──
+function allDoneCount(habits,key){return habits.filter(h=>h.completions[key]).length;}
+
+function renderAllDayView(habits){
+  const k=dateStr(calDate),today=dateStr(new Date()),n=habits.length;
+  const done=allDoneCount(habits,k);
+  const pct=n?done/n:0;
+  const color='var(--tint)';
+  return`<div class="day-view">
+    <div class="day-circle${done===n&&n>0?' done':''}" style="${done>0?`border-color:var(--tint);box-shadow:0 8px 32px rgba(255,159,10,.3)`:``}">
+      <span style="font-size:28px;font-weight:700;color:${done===n&&n>0?'var(--green)':'var(--tint)'}">${done}/${n}</span>
+    </div>
+    <div class="day-label">${fmtDate(calDate,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+    <div class="day-status" style="color:${done===n&&n>0?'var(--green)':'var(--label-2)'}">${done===n&&n>0?'All habits done!':done>0?`${done} of ${n} completed`:'None completed'}</div>
+  </div>`;
+}
+
+function renderAllWeekView(habits){
+  const s=getWeekStart(calDate),today=dateStr(new Date()),n=habits.length;
+  const wl=['M','T','W','T','F','S','S'];
+  let html=`<div class="week-grid">`;
+  for(let i=0;i<7;i++){
+    const d=new Date(s);d.setDate(d.getDate()+i);
+    const k=dateStr(d),done=allDoneCount(habits,k),isToday=k===today,isFuture=k>today;
+    const all=done===n&&n>0,partial=done>0&&!all;
+    html+=`<div class="wk-day${all?' done':''}${isToday?' today':''}">
+      <div class="wk-dl">${wl[i]}</div>
+      <div class="wk-circle" style="${all?`background:var(--tint);border-color:var(--tint);box-shadow:0 2px 8px rgba(255,159,10,.4)`:partial?`border-color:var(--tint)`:isToday?`border-color:var(--tint)`:``}">
+        ${all?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:partial?`<span style="font-size:10px;font-weight:700;color:var(--tint)">${done}</span>`:''}
+      </div>
+      <div class="wk-num">${d.getDate()}</div>
+    </div>`;
+  }
+  return html+`</div>`;
+}
+
+function renderAllMonthView(habits){
+  const y=calDate.getFullYear(),m=calDate.getMonth(),days=daysInMonth(y,m),first=firstDayOfMonth(y,m);
+  const today=dateStr(new Date()),n=habits.length;
+  let html=`<div class="month-grid"><div class="month-wdays">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>`<div class="wday">${d}</div>`).join('')}</div><div class="month-days">`;
+  for(let i=0;i<first;i++)html+=`<div class="cal-day empty"></div>`;
+  for(let day=1;day<=days;day++){
+    const d=new Date(y,m,day),k=dateStr(d),done=allDoneCount(habits,k),isToday=k===today,isFuture=k>today;
+    const all=done===n&&n>0,partial=done>0&&!all;
+    let cls='cal-day';if(isFuture)cls+=' future';if(isToday)cls+=' today';if(all)cls+=' done';
+    html+=`<div class="${cls}" style="${all?`background:var(--tint);box-shadow:0 2px 6px rgba(255,159,10,.4)`:partial?`box-shadow:0 0 0 1.5px var(--tint)`:isToday?`box-shadow:0 0 0 1.5px var(--tint)`:''}" title="${k}: ${done}/${n}">
+      ${all?`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:day}
+    </div>`;
+  }
+  return html+`</div></div>`;
+}
+
+function renderAllYearView(habits){
+  const y=calDate.getFullYear(),today=dateStr(new Date()),n=habits.length;
+  let html=`<div class="year-heatmap"><div class="heatmap-grid">`;
+  const start=new Date(y,0,1);
+  for(let i=0;i<start.getDay();i++)html+=`<div class="heat-cell" style="background:transparent"></div>`;
+  const d=new Date(start);
+  while(d.getFullYear()===y){
+    const k=dateStr(d),done=allDoneCount(habits,k),isFuture=k>today;
+    const intensity=n>0?done/n:0;
+    const alpha=isFuture?0:intensity>0?(.2+intensity*.8):.15;
+    const bg=intensity>0?`rgba(255,159,10,${alpha})`:isFuture?'transparent':`var(--fill-3)`;
+    html+=`<div class="heat-cell" title="${k}: ${done}/${n}" style="background:${bg}"></div>`;
+    d.setDate(d.getDate()+1);
+  }
+  return html+`</div></div>`;
+}
+
+function renderAllStats(habits){
+  const today=dateStr(new Date()),n=habits.length;
+  if(!n)return'';
+  let keys=[];
+  if(calPeriod==='day')keys=[dateStr(calDate)];
+  else if(calPeriod==='week'){const s=getWeekStart(calDate);for(let i=0;i<7;i++){const d=new Date(s);d.setDate(d.getDate()+i);keys.push(dateStr(d));}}
+  else if(calPeriod==='month'){const y=calDate.getFullYear(),m=calDate.getMonth(),nd=daysInMonth(y,m);for(let i=1;i<=nd;i++)keys.push(dateStr(new Date(y,m,i)));}
+  else{const d=new Date(calDate.getFullYear(),0,1);while(d.getFullYear()===calDate.getFullYear()){keys.push(dateStr(d));d.setDate(d.getDate()+1);}}
+  const pastKeys=keys.filter(k=>k<=today);
+  const totalSlots=pastKeys.length*n;
+  const totalDone=pastKeys.reduce((acc,k)=>acc+allDoneCount(habits,k),0);
+  const rate=totalSlots?Math.round(totalDone/totalSlots*100):0;
+  const perfectDays=pastKeys.filter(k=>allDoneCount(habits,k)===n).length;
+  return`<div class="stats-row">
+    <div class="stat-card"><div class="stat-val" style="color:var(--tint)">${n}</div><div class="stat-lbl">${ic('activity',12)} Habits</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--yellow)">${perfectDays}</div><div class="stat-lbl">${ic('trophy',12)} Perfect</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--green)">${rate}%</div><div class="stat-lbl">${ic('target',12)} Rate</div></div>
   </div>`;
 }
@@ -815,12 +920,32 @@ async function enableNotifs(){
 }
 function testNotif(){navigator.serviceWorker.ready.then(r=>r.showNotification('The Habits Tracker',{body:'Reminders are working!',icon:'./apple-touch-icon.png'}));showToast('Test sent!');}
 function scheduleReminders(){
-  if(!navigator.serviceWorker.controller||Notification.permission!=='granted')return;
+  if(Notification.permission!=='granted')return;
   const reminders=Store.habits.filter(h=>h.reminderTime).map(h=>({id:h.id,name:h.name,icon:h.emoji,time:h.reminderTime}));
-  if(reminders.length)navigator.serviceWorker.controller.postMessage({type:'SCHEDULE_REMINDERS',reminders});
+  if(!reminders.length)return;
+  if(navigator.serviceWorker.controller){
+    navigator.serviceWorker.controller.postMessage({type:'SCHEDULE_REMINDERS',reminders});
+  } else {
+    navigator.serviceWorker.ready.then(reg=>{
+      if(reg.active)reg.active.postMessage({type:'SCHEDULE_REMINDERS',reminders});
+    });
+  }
 }
 
 // ── Sheet ──
+function setAllDay(on){
+  shAllDay=on;
+  const tog=document.getElementById('allday-toggle');
+  const knob=document.getElementById('allday-knob');
+  const inp=document.getElementById('habit-reminder');
+  if(!tog)return;
+  tog.style.background=on?'var(--tint)':'var(--fill-3)';
+  knob.style.transform=on?'translateX(18px)':'translateX(0)';
+  inp.style.opacity=on?'.35':'1';
+  inp.disabled=on;
+}
+function toggleAllDay(){setAllDay(!shAllDay);}
+
 function buildIconGrid(){
   document.getElementById('icon-grid').innerHTML=HABIT_ICONS.map(n=>`<button class="icon-pick${n===shIcon?' sel':''}" onclick="selIcon('${n}')" title="${n}">${ic(n,20)}</button>`).join('');
 }
@@ -836,14 +961,17 @@ function openSheet(habitId=null){
     const h=Store.habits.find(x=>x.id===habitId);if(!h)return;
     document.getElementById('sheet-title').textContent='Edit Habit';
     document.getElementById('habit-name').value=h.name;
-    document.getElementById('habit-reminder').value=h.reminderTime||'09:00';
     shIcon=h.emoji;shColor=h.color;
+    const hasTime=!!h.reminderTime;
+    document.getElementById('habit-reminder').value=hasTime?h.reminderTime:'09:00';
+    setTimeout(()=>setAllDay(!hasTime),50);
   } else {
     document.getElementById('sheet-title').textContent='New Habit';
     document.getElementById('habit-name').value='';
     document.getElementById('habit-reminder').value='09:00';
     shIcon=HABIT_ICONS[Math.floor(Math.random()*HABIT_ICONS.length)];
     shColor=COLORS[Store.habits.length%COLORS.length];
+    setTimeout(()=>setAllDay(false),50);
   }
   buildIconGrid();buildColorRow();
   document.getElementById('habit-sheet').classList.add('open');
@@ -854,7 +982,7 @@ function closeSheet(){document.getElementById('habit-sheet').classList.remove('o
 async function saveHabit(){
   const name=document.getElementById('habit-name').value.trim();
   if(!name){showToast('Please enter a name');return;}
-  const reminder=document.getElementById('habit-reminder').value;
+  const reminder=shAllDay?null:document.getElementById('habit-reminder').value;
   if(editId){const h=Store.habits.find(x=>x.id===editId);if(h){h.name=name;h.emoji=shIcon;h.color=shColor;h.reminderTime=reminder;}}
   else{Store.habits.push({id:uid(),name,emoji:shIcon,color:shColor,reminderTime:reminder,completions:{}});}
   await Store.save();scheduleReminders();closeSheet();renderPage(page);
@@ -874,7 +1002,13 @@ async function loginUser(){
 
 // ── Init ──
 async function init(){
-  if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('./sw.js');}catch(e){}}
+  if('serviceWorker' in navigator){
+    try{
+      const reg=await navigator.serviceWorker.register('./sw.js');
+      // Schedule reminders as soon as SW is ready (even before user interacts)
+      reg.addEventListener('activate',()=>{if(Notification.permission==='granted')scheduleReminders();});
+    }catch(e){}
+  }
   await Store.init();
   if(Store.userName){
     document.getElementById('login-overlay').style.display='none';

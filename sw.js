@@ -1,4 +1,4 @@
-const CACHE = 'habits-tracker-v1';
+const CACHE = 'habits-tracker-v3';
 const ASSETS = ['./index.html', './manifest.json', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
