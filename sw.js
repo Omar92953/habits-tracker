@@ -20,6 +20,7 @@ self.addEventListener('fetch', e => {
 const scheduledTimers = new Map();
 
 self.addEventListener('message', e => {
+  if (e.data.type === 'SKIP_WAITING') { self.skipWaiting(); return; }
   if (e.data.type !== 'SCHEDULE_REMINDERS') return;
 
   scheduledTimers.forEach(t => clearTimeout(t));
